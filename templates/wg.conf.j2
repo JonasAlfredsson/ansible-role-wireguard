@@ -7,6 +7,9 @@ ListenPort = {{ item.listen_port }}
 {% for name, peer in item.peers.items() %}
 [Peer]  # {{ name }}
 PublicKey = {{ peer.public_key }}
+{% if peer.preshared_key is defined %}
+PresharedKey = {{ peer.preshared_key }}
+{% endif %}
 AllowedIPs = {{ peer.allowed_ips | join(', ') }}
 {% if peer.endpoint is defined %}
 Endpoint = {{ peer.endpoint }}

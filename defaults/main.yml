@@ -18,6 +18,7 @@ wireguard_tunnel_interfaces: {}
 #     peers:
 #       peer_1:
 #         public_key: "PEER_PUBLIC_KEY"
+#         preshared_key: "OPTIONAL_PRESHARED_KEY"
 #         allowed_ips: ["10.10.10.2/32"]
 
 # The forwarding rules may be defined to override the default rules that are

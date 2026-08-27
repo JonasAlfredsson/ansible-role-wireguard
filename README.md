@@ -127,6 +127,7 @@ wireguard_tunnel_interfaces:
     peers:
       serverB:
         public_key: "<server_B.pub>"
+        preshared_key: "<site_AB.psk>" # Read about this in the "Pre-Shared Keys" section.
         allowed_ips: ["10.10.10.2/32", "192.168.20.0/24"] # Site B's subnet.
         endpoint: site_b.com:51820
 ```
@@ -146,6 +147,7 @@ wireguard_tunnel_interfaces:
     peers:
       serverA:
         public_key: "<server_A.pub>"
+        preshared_key: "<site_AB.psk>"
         allowed_ips: ["10.10.10.1/32", "192.168.10.0/24"] # Site A's subnet.
         endpoint: site_a.com:51820
 ```
@@ -234,6 +236,22 @@ key for us to include here.
 
 ```yaml
 wg genkey | tee /dev/tty | wg pubkey
+```
+
+### Pre-Shared Keys
+WireGuard can optionally add a pre-shared symmetric key on top of its normal
+public-key cryptography. This is not required for WireGuard to be secure today,
+but it adds another layer of protection that makes it more resistant to
+quantum computers.
+
+The pre-shared key must be the same on both sides of a single peer
+relationship. It is configured per peer, not per interface, so each peer entry
+may have its own `preshared_key` value.
+
+To generate one, use:
+
+```bash
+wg genpsk
 ```
 
 ### MTU
