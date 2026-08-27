@@ -38,17 +38,17 @@ main playbook like this:
 
 ## Usage
 
-This section will take you through the different variables that exists, starting
+This section will take you through the different variables that exist, starting
 with those that must be defined and then continuing with the optional ones used
 for more advanced setups.
 
 There are also some important [Network Preparations](#network-preparations) steps
-which needs to be completed in order for WireGuard to work properly, so assert
+which need to be completed in order for WireGuard to work properly, so assert
 that those are completed before continuing here.
 
 ### Host Preparations
 For WireGuard to be able to shuttle traffic coming from a tunnel out to the
-LAN we need to both enable `net.ipv4.ip_forward` and allow this traffic though
+LAN we need to both enable `net.ipv4.ip_forward` and allow this traffic through
 the firewall (`nftables`). This is managed by listing the physical interface
 of the host where traffic may exit, like `eth0` or `enp0s31f6`, which should
 be present and have an IP address when listed with the help of `ip addr` on the
@@ -58,7 +58,7 @@ targeted system. These should be defined in the following variable:
 wireguard_physical_interfaces: ["eth0"]
 ```
 
-If you know what you are doing, and don't want any WireGuard traffic to be able
+If you know what you are doing, and do not want any WireGuard traffic to be able
 to reach the LAN, you can set this variable to `null` and you will not get an
 error when trying to use this role.
 
@@ -94,9 +94,9 @@ clients will not be able to initiate connections directly to each other. For a
 more advanced setup you can go to the next section.
 
 ### Site-to-Site Tunnel
-A more advanced setup you want to make it seamless for clients on one LAN to
-connect to clients on another LAN. For this to work you will need two servers,
-one on each LAN, so to just work with some real config values we assume the
+A more advanced setup is one where you want to make it seamless for clients on
+one LAN to connect to clients on another LAN. For this to work you will need two
+servers, one on each LAN, so to work through a concrete example we assume the
 following (relevant [network preparations](#network-preparations) completed for
 both sites):
 
@@ -163,7 +163,7 @@ inform them about this route. There are three alternatives:
    1. ...without ICMP redirects (all traffic must go through the router)
    2. ...with ICMP redirects (will require "loose filtering" on the server)
 
-The two first options are not sustainable for me, and option 3.1 would probably
+The first two options are not sustainable for me, and option 3.1 would probably
 be my top choice if it weren't for the fact that you will need business grade
 equipment to be able to disable ICMP redirects.
 
@@ -175,11 +175,11 @@ in turn means that the following variable need to be set on both sites:
 wireguard_loose_filtering_interfaces: ["eth0"]
 ```
 
-This is opens a security issue it your server is directly connected to the
+This opens a security issue if your server is directly connected to the
 internet, but is negligible if it is on a LAN since there are some much more
 efficient attacks you can do instead of exploiting this.
 
-The final step is to go to each sites router/gateway and define the following
+The final step is to go to each site's router/gateway and define the following
 static routes:
 
 **SITE A**:
@@ -200,14 +200,15 @@ This section contains useful commands, tips, and more detailed explanations for
 topics mentioned earlier in the guide.
 
 ### Key Generation
-When creating tunnels and connecting clients you will need a private+public
+When creating tunnels and connecting clients you will need a private/public
 key pair in order to both encrypt and authenticate the traffic. The private part
 is the most important part that may not be known by anyone else than the one
 that created it.
 
 You as the owner of the server (deployed through this role) should really only
-know about the private key defined for the [receiving interface](#simple-tunnel)
-and any peers should just hand you their public part for inclusion in this role.
+need to know about the private key defined for the [receiving interface](#simple-tunnel).
+Any peers should hand you their public key, and any pre-shared key if one is
+used, for inclusion in this role.
 
 #### Create Server Keys
 The quick and easy method to creating, and saving, the keys for an interface is
@@ -336,7 +337,7 @@ behind a router/gateway with NAT, so port forwarding is necessary.
 Peers must be able to know which address to use when they want to connect to
 the server while they are out and about. The quick and dirty solution is to just
 hard-code your current public IP address as the `Endpoint` for the clients.
-You can get this though
+You can get this with:
 
 ```bash
 curl https://icanhazip.com
@@ -358,7 +359,7 @@ clients and have it keep pointing to your current public IP.
 
 #### Port Forwarding
 If your server is behind a router you will most likely need to set up port
-forwarding on it in order for clients to be able initiate the connection to the
+forwarding on it in order for clients to be able to initiate the connection to the
 server from the internet.
 
 All routers differ in exactly how to do this, so you will probably have to
