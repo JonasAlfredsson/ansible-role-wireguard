@@ -1,0 +1,75 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    # ================================================
+    # INPUT CHAIN (Limit access to the machine itself)
+    # ================================================
+    chain input {
+        type filter hook input priority filter; policy drop; # Strict security baseline
+
+        # Allow basic system essentials.
+        iifname "lo" accept
+        ct state established, related accept
+
+        # Allow diagnostic traffic (ping).
+        icmp type echo-request accept
+        ip6 nexthdr icmpv6 icmpv6 type echo-request accept
+
+        # Allow SSH traffic.
+        tcp dport 22 accept
+
+        # Allow incoming WireGuard traffic.
+{% for interface in wireguard_tunnel_interfaces %}
+        udp dport {{ wireguard_tunnel_interfaces[interface].listen_port }} accept  # {{ interface }}
+{% endfor %}
+    }
+
+    # ===================================================================
+    # CORE FORWARDING ROUTER (Allows traffic to pass through the machine)
+    # ===================================================================
+    chain forward {
+        type filter hook forward priority filter; policy drop; # Drop cross-traffic by default
+
+        # Fast-track open stateful traffic.
+        ct state established, related accept
+
+        # Allow traffic from the WireGuard interfaces to exit through the physical
+        # interfaces (or any other interface that is defined).
+{% for interface in wireguard_tunnel_interfaces %}{% if interface in wireguard_forwarding_rules and wireguard_forwarding_rules[interface] | length > 0 %}
+        iifname "{{ interface }}" oifname { "{{ wireguard_forwarding_rules[interface] | join('", "') }}" } accept
+{% elif wireguard_physical_interfaces | length > 0 %}
+        iifname "{{ interface }}" oifname { "{{ wireguard_physical_interfaces | join('", "') }}" } accept
+{% endif %}{% endfor %}
+
+        # Allow traffic originating from other interfaces. This allows for e.g. connections
+        # to be initiated from the LAN across the tunnel which is needed for
+        # site-to-site connections using static routes.
+{% for interface in wireguard_forwarding_rules %}{% if interface not in wireguard_tunnel_interfaces and wireguard_forwarding_rules[interface] | length > 0 %}
+        iifname "{{ interface }}" oifname { "{{ wireguard_forwarding_rules[interface] | join('", "') }}" } accept
+{% endif %}{% endfor %}
+    }
+
+    # ================================================================
+    # OUTPUT CHAIN (Allow the machine to connect to whatever it wants)
+    # ================================================================
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}
+
+# Enable masquerading for the WireGuard interfaces to simplify routing and NAT for the clients.
+# Should be disabled for site-to-site connections.
+table ip nat_table {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+{% for interface, value in wireguard_tunnel_interfaces.items() %}{% if value.masquerade is not defined or value.masquerade %}
+{% if wireguard_forwarding_rules[interface] is defined and wireguard_forwarding_rules[interface] | length > 0 %}
+        iifname "{{ interface }}" oifname { "{{ wireguard_forwarding_rules[interface] | join('", "') }}" } masquerade
+{% elif wireguard_physical_interfaces | length > 0 %}
+        iifname "{{ interface }}" oifname { "{{ wireguard_physical_interfaces | join('", "') }}" } masquerade
+{% endif %}
+{% endif %}{% endfor %}
+    }
+}

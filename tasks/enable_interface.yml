@@ -1,0 +1,17 @@
+---
+- name: Deploy WireGuard configuration file for {{ interface }}
+  vars:
+    item: "{{ wireguard_tunnel_interfaces[interface] }}"
+  ansible.builtin.template:
+    src: "wg.conf.j2"
+    dest: "/etc/wireguard/{{ interface }}.conf"
+    owner: 'root'
+    group: 'root'
+    mode: '0600'
+  register: wg_conf_file
+
+- name: Start and enable {{ interface }}
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ interface }}"
+    state: "{{ 'restarted' if wg_conf_file.changed else 'started' }}"
+    enabled: true

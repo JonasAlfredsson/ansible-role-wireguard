@@ -1,0 +1,118 @@
+---
+- name: Print the type
+  ansible.builtin.debug:
+    msg: "The type is: {{ wireguard_physical_interfaces | type_debug }}"
+
+- name: "Assert that wireguard_physical_interfaces is a non-empty list"
+  ansible.builtin.assert:
+    that:
+      - wireguard_physical_interfaces is iterable
+      - wireguard_physical_interfaces | length > 0
+    fail_msg: "The variable 'wireguard_physical_interfaces' must be a non-empty list of physical interfaces that can route traffic to the internet."
+  when: wireguard_physical_interfaces is not none
+
+- name: Change from None to empty list if wireguard_physical_interfaces is None
+  ansible.builtin.set_fact:
+    wireguard_physical_interfaces: []
+  when: wireguard_physical_interfaces is none
+
+- name: "Install required packages"
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  ansible.builtin.apt:
+    name:
+      - "nftables"
+      - "wireguard"
+      - "wireguard-tools"
+    state: present
+
+- name: Ensure nftables is enabled and running
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: started
+    enabled: true
+
+# The nftables rules need to be configured to properly route traffic between
+# the WireGuard interface and the internet. This should be done before WireGuard
+# is running to avoid any security issues.
+- name: "Assemble the nftables configuration file"
+  ansible.builtin.template:
+    src: "nftables.conf.j2"
+    dest: "/etc/nftables.conf"
+    owner: 'root'
+    group: 'root'
+    mode: '0600'
+    validate: 'nft -c -f %s'
+  notify: Reload nftables
+
+# Without IP forwarding enabled WireGuard will not be able to route traffic
+# between peers and the internet.
+- name: Deploy IP forwarding configuration
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-ip-forward.conf
+    content: "net.ipv4.ip_forward=1\n"
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: Reload sysctl
+
+# If a site to site VPN is configured with static routes defined at the
+# router/gateway, the following configuration is required to allow traffic to
+# not be dropped after clients have been issued a ICMP redirect message.
+- name: Deploy loose filtering configuration
+  block:
+    - name: Allow loose filtering
+      ansible.builtin.template:
+        src: "99-loose-filtering.conf.j2"
+        dest: /etc/sysctl.d/99-loose-filtering.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: wireguard_loose_filtering_interfaces | length > 0
+      notify: Reload sysctl
+
+    - name: Disallow loose filtering
+      ansible.builtin.file:
+        path: /etc/sysctl.d/99-loose-filtering.conf
+        state: absent
+      when: wireguard_loose_filtering_interfaces | length == 0
+      notify: Reload sysctl
+
+- name: Make sure all the required services are up to date
+  ansible.builtin.meta: flush_handlers
+
+- name: "Create expected WireGuard folder"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ item }}"
+    mode: '0700'
+    owner: 'root'
+    group: 'root'
+  loop:
+    - "{{ wireguard_base_dir }}"
+
+- name: Remove old WireGuard configuration files
+  block:
+    - name: Search for *.conf files in the WireGuard directory
+      ansible.builtin.find:
+        paths: /etc/wireguard
+        patterns: "*.conf"
+        file_type: file
+      register: found_wg_files
+
+    - name: Remove unknown/old WireGuard configuration files
+      ansible.builtin.include_tasks:
+        file: disable_interface.yml
+      loop: "{{ found_wg_files.files | map(attribute='path') | map('basename') | map('splitext') | map('first') | list }}" # Gets just ["wg0"] from ["/etc/wireguard/wg0.conf"]
+      loop_control:
+        label: "{{ interface }}"
+        loop_var: interface
+      when: interface not in wireguard_tunnel_interfaces
+
+- name: Configure WireGuard interfaces
+  ansible.builtin.include_tasks:
+    file: enable_interface.yml
+  loop: "{{ wireguard_tunnel_interfaces.keys() }}"
+  loop_control:
+    label: "{{ interface }}"
+    loop_var: interface

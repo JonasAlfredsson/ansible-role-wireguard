@@ -1,0 +1,38 @@
+---
+wireguard_base_dir: "/etc/wireguard"
+
+# This list should contain all of the physical interfaces on the host which are
+# able to route traffic to the internet (or the LAN where it is located, e.g.
+# "eth0"). Keeping this empty means that any incoming connection will not be
+# able to connect to anything outside of the host.
+# Set to "null" if you want to disable routing traffic to the internet completely.
+wireguard_physical_interfaces: []
+
+# This dict should contain all of the WireGuard interfaces that are to be
+# configured on the host.
+wireguard_tunnel_interfaces: {}
+#   wg0:
+#     private_key: "PRIVATE_KEY"
+#     address: "10.10.10.1/24"
+#     listen_port: 51820
+#     peers:
+#       peer_1:
+#         public_key: "PEER_PUBLIC_KEY"
+#         allowed_ips: ["10.10.10.2/32"]
+
+# The forwarding rules may be defined to override the default rules that are
+# generated for each WireGuard interface,
+wireguard_forwarding_rules: {}
+#  wg0:  ["eth0", "wg2"]  <-- Allow traffic to eth0 and another tunnel at wg2.
+#  eth0: ["wg0"]          <-- Needed for site-to-site tunnels.
+
+# This is a list of interfaces that should be configured with "loose filtering",
+# which is required for packages to not be dropped in case you are configuring
+# a site-to-site tunnel with static routes configured on the router/gateway
+# instead of using the DHCP 121 option or configuring the routes directly on
+# each client.
+# This is the method which supports the most types of clients with just a
+# negligible security risk.
+# The interfaces listed here should be the "internet" facing ones (e.g. eth0 or
+# wlan0), and they will be configured with rp_filter=2 (loose filtering).
+wireguard_loose_filtering_interfaces: []

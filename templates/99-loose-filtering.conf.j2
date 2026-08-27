@@ -1,0 +1,4 @@
+net.ipv4.conf.all.rp_filter=2
+{% for interface in wireguard_loose_filtering_interfaces %}
+net.ipv4.conf.{{ interface }}.rp_filter=2
+{% endfor %}

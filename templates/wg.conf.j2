@@ -1,0 +1,15 @@
+[Interface]
+PrivateKey = {{ item.private_key }}
+Address = {{ item.address }}
+ListenPort = {{ item.listen_port }}
+{% if item.mtu is defined %}MTU = {{ item.mtu }}{% endif %}
+
+{% for name, peer in item.peers.items() %}
+[Peer]  # {{ name }}
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+{% if peer.endpoint is defined %}
+Endpoint = {{ peer.endpoint }}
+PersistentKeepalive = 25
+{% endif %}
+{% endfor %}

@@ -1,0 +1,11 @@
+---
+- name: Stop and disable {{ interface }}
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ interface }}"
+    state: stopped
+    enabled: false
+
+- name: Remove config file for {{ interface }}
+  ansible.builtin.file:
+    path: "/etc/wireguard/{{ interface }}.conf"
+    state: absent
