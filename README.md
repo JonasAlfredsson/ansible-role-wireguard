@@ -42,9 +42,9 @@ This section will take you through the different variables that exist, starting
 with those that must be defined and then continuing with the optional ones used
 for more advanced setups.
 
-There are also some important [Network Preparations](#network-preparations) steps
-which need to be completed in order for WireGuard to work properly, so assert
-that those are completed before continuing here.
+There are also some important [Network Preparations](#network-preparations)
+steps which need to be completed in order for WireGuard to work properly, so
+assert that those are completed before continuing here.
 
 ### Host Preparations
 For WireGuard to be able to shuttle traffic coming from a tunnel out to the
@@ -95,17 +95,114 @@ more advanced setup you can go to the next section.
 
 ### Site-to-Site Tunnel
 A more advanced setup is one where you want to make it seamless for clients on
-one LAN to connect to clients on another LAN. For this to work you will need two
-servers, one on each LAN, so to work through a concrete example we assume the
-following (relevant [network preparations](#network-preparations) completed for
-both sites):
+one LAN to connect to clients on another LAN using their original IP directly.
+For this to work you will need two servers, one on each site, and there are
+three approaches to settings this up (in recommended order):
+
+1. Have a router powerful enough to run WireGuard and configure it there.
+2. Set up a transit VLAN with a static route configured on the router.
+3. Have the WireGuard server on the default LAN network and configure static
+   routes on all the local clients.
+
+I will go into a little more detail on the pros and cons of these cases, but
+I will just hint at that the third option is subpar compared to the others.
+The reason is how you must handle routing and firewall rules which become quite
+complicated if you want to support all types of clients.
+
+> Example [config for option 2](#example-site-to-site-config) at the very end
+> of this section.
+
+#### Case 1: Use the Router/Gateway
+This will be the absolute easiest when it comes to routing, since most of the
+routers will be able to add the correct rules by themselves and for all of the
+clients they will just send all of their traffic to the default gateway and it
+will end up at the correct destination.
+
+The problem here is that WireGuard may become quite resource intensive, and a
+weaker router will have trouble reaching >100MBit speeds. Buying one with active
+cooling will most likely mean that the CPU on it is powerful enough to handle
+speeds greater than that.
+
+If you are thinking about upgrading your networking hardware and want a site
+to site tunnel you should probably splurge a little on this to make your life
+easier.
+
+#### Case 2: Transit VLAN
+If you don't want to buy a new router you can just route the traffic to
+something like a Raspberry Pi in order to offload the encryption and decryption
+of the tunnel traffic. However, this method (with a "transit VLAN") requires you
+to set up a separate VLAN in which you place this WireGuard server/gateway.
+
+Using a separate VLAN allows all clients to remain unaware of any new routes,
+and you can safely just add a static route on the router pointing the next hop
+as being the WireGuard server. Having all traffic flow through the router
+this way also means that its firewall will be aware of everything and not
+drop traffic caused by [asymmetric routing](#icmp-redirect).
+
+The cons with this solution is that all traffic will need to first be routed
+from the LAN to the WireGuard server, and then routed again out to the internet.
+This means that you are both limited by the "double" routing speed of the
+router (which is usually fine) and that the total amount of traffic (sending +
+receiving) can not exceed the speed of the local wire.
+
+For a little bit more advanced home setup you should probably be able to reach
+~400Mbit doing it like this via a Raspberry Pi. Which is faster than most
+residential connections.
+
+#### Case 3:
+In this case the WireGuard server remains on the same VLAN as all the other
+clients, which would mean that traffic can go directly to the server instead
+of having to go though the router, meaning that basically you are just limited
+by your internet connection.
+
+However, I had a lot of trouble making this setup work reliable, and the
+professional opinion is to use transit VLANs, but if you are able to use
+either option 1 or 2 below you should be fine.
+
+1. Announce static routes via DHCP option 121 (not supported by Android)
+2. Set static routes manually on each client
+3. Configure static routes on the router/gateway...
+   1. ...without ICMP redirects (all traffic must go through the router)
+   2. ...with ICMP redirects (will require "loose filtering" on the server)
+
+Regarding option 3.1 it is only enterprise grade routers which will allow it,
+and since this basically turns off the only benefit of this approach I would
+not use this over a transit VLAN.
+
+With option 3.2 you will run into issues regarding firewalls using "strict"
+instead of "sloppy" state tracking which will kill connections that do not
+receive data the same path as it is being sent. You will also have to allow
+"[loose filtering](#icmp-redirect)" on the server's physical interfaces, which
+in turn means that the following variable need to be set on both sites:
+
+```yaml
+wireguard_loose_filtering_interfaces: ["eth0"]
+```
+
+This opens a security issue if your server is directly connected to the
+internet, but is negligible if it is on a LAN since there are some much more
+efficient attacks you can do instead of exploiting this.
+
+Clients may also decide that they don't like asymmetric routing and drop
+connections, or they may suddenly lose their routing cache during a big
+transfer which results in it stalling. So yeah, not a good time going with
+this option.
+
+
+#### Example site-to-site Config
+This is a sort of realistic configuration for [case 2](#case-2-transit-vlan)
+where a transfer VLAN is used.
+The base [network preparations](#network-preparations) are also expected to be
+completed for both sites:
 
 - **SITE A:**
-  - LAN: 192.168.10.0/24
-  - Server_A: 192.168.10.10
+  - Default VLAN: 192.168.10.0/24
+  - Transit VLAN: 192.168.9.8/29
+  - Server_A: 192.168.9.10
 - **SITE B:**
-  - LAN: 192.168.20.0/24
-  - Server_B: 192.168.20.10
+  - Default VLAN: 192.168.20.0/24
+  - Transit VLAN: 192.168.9.16/29
+  - Server_B: 192.168.9.18
 
 With this we now configure the servers to connect to each other and route the
 other side's LAN subnet along with the IP of the WireGuard interfaces.
@@ -152,43 +249,16 @@ wireguard_tunnel_interfaces:
         endpoint: site_a.com:51820
 ```
 
-With this we should be able to login to one of the servers and be able to ping
-the **WireGuard interface** of the other server. However, in order to be able
-to allow for traffic to flow from clients on one LAN to the other we need to
-inform them about this route. There are three alternatives:
-
-1. Announce static routes via DHCP option 121 (not supported by Android)
-2. Set static routes manually on each client (tedious and not very user friendly)
-3. Configure static routes on the router/gateway...
-   1. ...without ICMP redirects (all traffic must go through the router)
-   2. ...with ICMP redirects (will require "loose filtering" on the server)
-
-The first two options are not sustainable for me, and option 3.1 would probably
-be my top choice if it weren't for the fact that you will need business grade
-equipment to be able to disable ICMP redirects.
-
-This leaves us with option 3.2, but that will require us to allow
-"[loose filtering](#icmp-redirect)" on the server's physical interfaces, which
-in turn means that the following variable need to be set on both sites:
-
-```yaml
-wireguard_loose_filtering_interfaces: ["eth0"]
-```
-
-This opens a security issue if your server is directly connected to the
-internet, but is negligible if it is on a LAN since there are some much more
-efficient attacks you can do instead of exploiting this.
-
 The final step is to go to each site's router/gateway and define the following
 static routes:
 
 **SITE A**:
 - Destination: 192.168.20.0/24
-- Default Gateway: 192.168.10.10
+- Default Gateway: 192.168.9.10
 
 **SITE B**:
 - Destination: 192.168.10.0/24
-- Default Gateway: 192.168.20.10
+- Default Gateway: 192.168.9.18
 
 You should now be able to ping a computer on site B (192.168.20.123) from site
 A (192.168.10.213).
@@ -290,7 +360,8 @@ That is usually fine for road-warrior clients. For a site-to-site tunnel, where
 each side needs to route traffic to the other subnet directly, you can disable
 masquerading for that interface. This then leaves the original source intact,
 which means it is possible to know which host on the other side of the tunnel
-the traffic came from.
+the traffic came from. Some kind of static routing will need to be configured
+for the traffic to know where to go except for the current default gateway.
 
 ### ICMP Redirect
 An ICMP redirect is a message a router can send to a host on the same LAN to
