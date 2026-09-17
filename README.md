@@ -44,7 +44,7 @@ for more advanced setups.
 
 There are also some important [Network Preparations](#network-preparations)
 steps which need to be completed in order for WireGuard to work properly, so
-assert that those are completed before continuing here.
+ensure that those are completed before continuing here.
 
 ### Host Preparations
 For WireGuard to be able to shuttle traffic coming from a tunnel out to the
@@ -67,9 +67,9 @@ The simplest and most common type of tunnel is the "road warrior" one, which is
 where the clients (phones/laptops) just want to connect back to the LAN where
 the server resides.
 
-The `<wg0.key>` entry here is the private key of the server and the `<*.pub>`
-entries are the public key from the different clients. How to generate them
-is explained in the [Key Generation](#key-generation) section.
+The `<wg0.key>` entry represents the server's private key, while the `<*.pub>`
+entries represent the public keys of the clients. How to generate them is
+explained in the [Key Generation](#key-generation) section.
 
 ```yaml
 wireguard_tunnel_interfaces:
@@ -95,9 +95,9 @@ more advanced setup you can go to the next section.
 
 ### Site-to-Site Tunnel
 A more advanced setup is one where you want to make it seamless for clients on
-one LAN to connect to clients on another LAN using their original IP directly.
-For this to work you will need two servers, one on each site, and there are
-three approaches to settings this up (in recommended order):
+one LAN to connect to clients on another LAN using their original IP addresses
+directly. For this to work you will need two servers, one on each site, and
+there are three approaches to setting this up (in recommended order):
 
 1. Have a router powerful enough to run WireGuard and configure it there.
 2. Set up a transit VLAN with a static route configured on the router.
@@ -119,13 +119,13 @@ clients they will just send all of their traffic to the default gateway and it
 will end up at the correct destination.
 
 The problem here is that WireGuard may become quite resource intensive, and a
-weaker router will have trouble reaching >100MBit speeds. Buying one with active
-cooling will most likely mean that the CPU on it is powerful enough to handle
-speeds greater than that.
+weaker router will have trouble reaching >100 MBit/s speeds. Buying one with
+active cooling will most likely mean that the CPU on it is powerful enough to
+handle speeds greater than that.
 
-If you are thinking about upgrading your networking hardware and want a site
-to site tunnel you should probably splurge a little on this to make your life
-easier.
+If you are thinking about upgrading your networking hardware and want a
+site-to-site tunnel you should probably splurge a little on this to make your
+life easier.
 
 #### Case 2: Transit VLAN
 If you don't want to buy a new router you can just route the traffic to
@@ -143,19 +143,19 @@ The cons with this solution is that all traffic will need to first be routed
 from the LAN to the WireGuard server, and then routed again out to the internet.
 This means that you are both limited by the "double" routing speed of the
 router (which is usually fine) and that the total amount of traffic (sending +
-receiving) can not exceed the speed of the local wire.
+receiving) cannot exceed the speed of the local wire.
 
 For a little bit more advanced home setup you should probably be able to reach
-~400Mbit doing it like this via a Raspberry Pi. Which is faster than most
+~400 Mbit/s doing it like this via a Raspberry Pi. Which is faster than most
 residential connections.
 
 #### Case 3:
 In this case the WireGuard server remains on the same VLAN as all the other
 clients, which would mean that traffic can go directly to the server instead
-of having to go though the router, meaning that basically you are just limited
+of having to go through the router, meaning that basically you are just limited
 by your internet connection.
 
-However, I had a lot of trouble making this setup work reliable, and the
+However, I had a lot of trouble making this setup work reliably, and the
 professional opinion is to use transit VLANs, but if you are able to use
 either option 1 or 2 below you should be fine.
 
@@ -170,10 +170,10 @@ and since this basically turns off the only benefit of this approach I would
 not use this over a transit VLAN.
 
 With option 3.2 you will run into issues regarding firewalls using "strict"
-instead of "sloppy" state tracking which will kill connections that do not
-receive data the same path as it is being sent. You will also have to allow
-"[loose filtering](#icmp-redirect)" on the server's physical interfaces, which
-in turn means that the following variable need to be set on both sites:
+instead of "loose/sloppy" state tracking which will kill connections that do not
+receive data along the same path on which it was sent. You will also have to
+allow "[loose filtering](#icmp-redirect)" on the server's physical interfaces,
+which in turn means that the following variable needs to be set on both sites:
 
 ```yaml
 wireguard_loose_filtering_interfaces: ["eth0"]
@@ -189,7 +189,7 @@ transfer which results in it stalling. So yeah, not a good time going with
 this option.
 
 
-#### Example site-to-site Config
+#### Example Site-to-Site Config
 This is a sort of realistic configuration for [case 2](#case-2-transit-vlan)
 where a transfer VLAN is used.
 The base [network preparations](#network-preparations) are also expected to be
@@ -276,15 +276,15 @@ is the most important part that may not be known by anyone else than the one
 that created it.
 
 You as the owner of the server (deployed through this role) should really only
-need to know about the private key defined for the [receiving interface](#simple-tunnel).
-Any peers should hand you their public key, and any pre-shared key if one is
-used, for inclusion in this role.
+need to know about the private key defined for the
+[receiving interface](#simple-tunnel). Any peers should hand you their public
+key, and any pre-shared key if one is used, for inclusion in this role.
 
 #### Create Server Keys
 The quick and easy method to creating, and saving, the keys for an interface is
 the following:
 
-```yaml
+```bash
 sudo -i
 cd /etc/wireguard
 umask 077
