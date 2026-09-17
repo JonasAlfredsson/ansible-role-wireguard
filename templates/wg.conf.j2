@@ -2,7 +2,9 @@
 PrivateKey = {{ item.private_key }}
 Address = {{ item.address }}
 ListenPort = {{ item.listen_port }}
-{% if item.mtu is defined %}MTU = {{ item.mtu }}{% endif %}
+{% if item.mtu is defined %}
+MTU = {{ item.mtu }}
+{% endif %}
 
 {% for name, peer in item.peers.items() %}
 [Peer]  # {{ name }}

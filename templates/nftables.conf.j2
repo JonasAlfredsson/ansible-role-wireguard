@@ -32,6 +32,14 @@ table inet filter {
     chain forward {
         type filter hook forward priority filter; policy drop; # Drop cross-traffic by default
 
+        # If an MTU is defined we clamp TCP MSS to be 40 bytes (IP+TCP headers) less than the WireGuard MTU.
+        # This prevents large TCP packets from getting stuck in site-to-site configurations where
+        # clients thinks they can send larger packets than the WireGuard tunnel allows.
+{% for interface, config in wireguard_tunnel_interfaces.items() %}{% if config.mtu is defined %}
+        oifname "{{ interface }}" tcp flags syn tcp option maxseg size set {{ config.mtu | int - 40 }}
+        iifname "{{ interface }}" tcp flags syn tcp option maxseg size set {{ config.mtu | int - 40 }}
+{% endif %}{% endfor %}
+
         # Fast-track open stateful traffic.
         ct state established, related accept
 
