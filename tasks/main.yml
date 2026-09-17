@@ -1,8 +1,4 @@
 ---
-- name: Print the type
-  ansible.builtin.debug:
-    msg: "The type is: {{ wireguard_physical_interfaces | type_debug }}"
-
 - name: "Assert that wireguard_physical_interfaces is a non-empty list"
   ansible.builtin.assert:
     that:

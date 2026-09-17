@@ -15,3 +15,4 @@
     name: "wg-quick@{{ interface }}"
     state: "{{ 'restarted' if wg_conf_file.changed else 'started' }}"
     enabled: true
+  ignore_errors: "{{ ansible_check_mode }}"
